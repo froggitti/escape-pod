@@ -5,3 +5,6 @@
 [submodule "modules/escape-pod-arm-image-builder"]
 	path = modules/escape-pod-arm-image-builder
 	url = https://github.com/DDLbots/escape-pod-arm-image-builder
+[submodule "escape-pod-ui"]
+	path = escape-pod-ui
+	url = https://github.com/froggitti/escape-pod-ui
