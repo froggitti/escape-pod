@@ -1,0 +1,7 @@
+modules
+!modules/escape-pod-ui/dist
+logs/
+ota/
+docs/
+image-builder/
+bin/

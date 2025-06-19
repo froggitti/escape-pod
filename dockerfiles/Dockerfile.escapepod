@@ -1,0 +1,40 @@
+FROM golang:buster as builder
+ARG SSH_PRIVATE_KEY
+ENV GOPRIVATE=github.com/anki,github.com/DDLbots
+
+RUN apt update
+RUN apt install libc6 libopus-dev libsodium-dev libsystemd-dev -y
+
+COPY deepspeech/linux-amd64/* /usr/lib/
+COPY deepspeech/include/* /usr/include/
+
+# Read this:  https://vsupalov.com/build-docker-image-clone-private-repo-ssh-key/
+RUN mkdir -p ~/.ssh && umask 0077 && echo "${SSH_PRIVATE_KEY}" > /root/.ssh/id_rsa \
+	&& git config --global url."git@github.com:".insteadOf https://github.com/ \
+    && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+WORKDIR /build 
+
+COPY go.mod . 
+COPY go.sum .
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=1 go build \
+	-ldflags '-w -s -r $(CWD)/deepspeech/linux-amd64/' \
+	-trimpath \
+	-tags image,nolibopusfile \
+	-o escape-pod cmd/escapepod/main.go
+
+FROM debian:buster
+RUN apt update --fix-missing
+RUN apt install libc6 libopus-dev libsodium-dev libsystemd-dev -y
+COPY deepspeech/linux-amd64/* /usr/lib/
+COPY deepspeech/include/* /usr/include/
+COPY deepspeech/deepspeech-0.9.1-models.pbmm /deepspeech/deepspeech-0.9.1-models.pbmm
+COPY deepspeech/deepspeech-0.9.1-models.scorer /deepspeech/deepspeech-0.9.1-models.scorer
+COPY --from=builder /build/escape-pod .
+
+ENTRYPOINT ["/escape-pod"]
+

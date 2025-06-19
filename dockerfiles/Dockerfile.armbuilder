@@ -1,0 +1,38 @@
+FROM docker.io/golang:buster
+
+RUN dpkg --add-architecture arm64
+
+RUN apt-get update && apt-get install -y \
+	g++-aarch64-linux-gnu \
+	gcc-aarch64-linux-gnu  \
+	libc6-dev-arm64-cross \
+	libopus-dev:arm64 \
+	libogg-dev:arm64 \
+	libsodium-dev:arm64 \
+	libsystemd-dev:arm64 
+
+ENV GOPATH=/go
+ENV GOOS=linux
+ENV GOARCH=arm64
+ENV GOARM=7
+ENV CGO_ENABLED=1
+ENV CC=aarch64-linux-gnu-gcc
+ENV CC_FOR_TARGET=aarch64-linux-gnu-gcc
+ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/
+ENV CXX="aarch64-linux-gnu-g++"
+ENV GOCACHE=/tmp
+
+ARG GITHUB_USER="not-set"
+ARG GITHUB_TOKEN="not-set"
+
+RUN echo "machine github.com login ${GITHUB_USER} password ${GITHUB_TOKEN}" > ~/.netrc
+ENV GOPRIVATE github.com/anki,github.com/DDLbots
+
+COPY deepspeech/linux-arm64/* /usr/lib/
+COPY deepspeech/include/* /usr/include/
+
+ENV CGO_LDFLAGS="-L/usr/lib/" 
+ENV CGO_CXXFLAGS="-I/usr/lib/" 
+ENV LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
+
+COPY coqui/linux-tflite-aarch64/* /usr/lib/

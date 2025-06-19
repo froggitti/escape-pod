@@ -1,0 +1,99 @@
+FROM docker.io/golang:buster as builder
+
+RUN dpkg --add-architecture arm64
+
+RUN apt-get update && apt-get install -y \
+	g++-aarch64-linux-gnu \
+	gcc-aarch64-linux-gnu  \
+	libc6-dev-arm64-cross \
+	libopus-dev:arm64 \
+	libogg-dev:arm64 \
+	libsodium-dev:arm64 \
+	libsystemd-dev:arm64 
+
+ENV GOPATH=/go
+ENV GOOS=linux
+ENV GOARCH=arm64
+ENV GOARM=7
+ENV CGO_ENABLED=1
+ENV CC=aarch64-linux-gnu-gcc
+ENV CC_FOR_TARGET=aarch64-linux-gnu-gcc
+ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/
+ENV CXX="aarch64-linux-gnu-g++"
+ENV GOCACHE=/tmp
+
+COPY deepspeech/linux-arm64/* /usr/lib/
+COPY deepspeech/include/* /usr/include/
+
+ENV CGO_LDFLAGS="-L/usr/lib/" 
+ENV CGO_CXXFLAGS="-I/usr/lib/" 
+ENV LD_LIBRARY_PATH=/usr/lib/:$LD_LIBRARY_PATH
+
+COPY coqui/linux-tflite-aarch64/* /usr/lib/
+
+ADD . /go/src/github.com/DDLbots/escape-pod
+WORKDIR /go/src/github.com/DDLbots/escape-pod
+
+ARG GITHUB_USER="not-set"
+ARG GITHUB_TOKEN="not-set"
+
+RUN echo "machine github.com login ${GITHUB_USER} password ${GITHUB_TOKEN}" > ~/.netrc
+
+ENV GOPRIVATE github.com/anki,github.com/DDLbots
+
+RUN make install-escapepod
+
+FROM debian:buster
+
+RUN dpkg --add-architecture arm64
+RUN apt-get update && apt-get install -y apt-transport-https
+
+RUN apt-get update && apt-get install -y \
+	libc6-dev-arm64-cross \
+	libopus-dev:arm64 \
+	libogg-dev:arm64 \
+	libsodium-dev:arm64 \
+	libsystemd-dev:arm64 
+
+ENV GOPATH=/go
+ENV GOOS=linux
+ENV GOARCH=arm64
+ENV GOARM=7
+ENV CGO_ENABLED=1
+ENV CC=aarch64-linux-gnu-gcc
+ENV CC_FOR_TARGET=aarch64-linux-gnu-gcc
+ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig/
+ENV CXX="aarch64-linux-gnu-g++"
+ENV GOCACHE=/tmp
+
+
+ENV LD_LIBRARY_PATH=/usr/lib/ 
+ENV ROOT_DIRECTORY="/usr/local/escapepod" 
+ENV BLE_LOG_DIRECTORY="logs" 
+ENV OTA_DIRECTORY="ota" 
+ENV UI_DIRECTORY="/dist" 
+ENV JDOCS_FILEPATH="jdocs.json" 
+ENV INTENTS_FILEPATH="intents.json" 
+ENV LICENSES_FILEPATH="licenses.json" 
+ENV DEFAULT_INTENTS_FILEPATH="./default-intents/default-intent-list.json" 
+ENV STT_MODEL="/usr/local/escapepod/model.tflite" 
+ENV STT_SCORER="/usr/local/escapepod/large_vocabulary.scorer" 
+ENV ESCAPEPOD_EXTENDER="" 
+ENV ESCAPEPOD_EXTENDER_TARGET="" 
+ENV ESCAPEPOD_EXTENDER_DISABLE_TLS="" 
+ENV GRPC_HOST="" 
+ENV GRPC_PORT=443 
+ENV UI_PORT=80 
+ENV GRPC_TLS=true 
+ENV LOG_LEVEL=debug
+
+ADD coqui/linux-tflite-amd64/* /usr/lib/
+ADD modules/escape-pod-ui/dist/* /usr/local/escapepod/dist/
+
+ADD coqui/large_vocabulary.scorer /usr/local/escapepod/large_vocabulary.scorer
+ADD coqui/model.tflite /usr/local/escapepod/model.tflite
+
+COPY --from=builder /go/src/github.com/DDLbots/escape-pod/bin/escape-pod-linux-arm64 /usr/local/escapepod/bin/escape-pod
+ENV PATH="/usr/local/escapepod/bin:$PATH"
+
+ENTRYPOINT [ "escape-pod" ]

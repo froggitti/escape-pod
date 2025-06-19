@@ -1,0 +1,15 @@
+#cloud-config
+chpasswd:
+  expire: true
+  list:
+  - ubuntu:ubuntu
+
+ssh_pwauth: true
+
+runcmd:
+ - [ usermod, -a, -G, bluetooth, ubuntu ]
+
+power_state:
+  mode: reboot
+  timeout: 10
+  condition: True

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# input=""  # Replace with your CSV file path
+
+while IFS=, read -r Index Vector ESN Rest
+do
+  echo "ESN: $ESN"
+  license -email=rachel.j.suitor.civ@us.navy.mil -robot=vic:$ESN > usn_keys/$ESN.key
+done <&0

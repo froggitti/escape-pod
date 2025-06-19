@@ -1,0 +1,58 @@
+version: '3.7'
+services:
+  escapepod-mongo:
+    container_name: escapepod-mongo
+    network_mode: host    
+    image: mongo:4.4.1-bionic
+    command: mongod --oplogSize 128 --replSet rs0 --storageEngine=wiredTiger
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./scripts/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - data:/data/db
+    expose:
+      - "27017"
+    healthcheck:
+      test: "test $$(mongo -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --quiet /docker-entrypoint-initdb.d/initdb.js) -eq 1"
+      interval: 10s
+      start_period: 10s
+  escapepod:
+    container_name: escapepod
+    network_mode: host
+    cap_add: [net_raw, net_admin]
+    build:
+      context: .
+      args:
+        - GITHUB_USER=${GITHUB_USER}
+        - GITHUB_TOKEN=${GITHUB_TOKEN}
+    volumes:
+      - ./image-builder/files/escape-pod-ui/dist:/usr/local/escapepod/ui
+      - ./deepspeech:/deepspeech
+    entrypoint:
+      - "escape-pod"
+    environment: 
+      - DDL_RPC_PORT=8084
+      - DDL_HTTP_PORT=8085
+      - DDL_OTA_PORT=8086
+      - DDL_UI_PORT=8080
+      - DDL_RPC_CLIENT_AUTHENTICATION=RequestClientCert
+      - BLE_LOG_DIRECTORY="."
+      - DDL_DB_NAME=database
+      - DDL_DB_HOST=localhost
+      - DDL_DB_PASSWORD=password
+      - DDL_DB_PORT=27017
+      - DDL_DB_USERNAME=root
+      - DDL_SAYWHATNOW_STT_MODEL=/deepspeech/deepspeech-0.9.1-models.tflite
+      - DDL_SAYWHATNOW_STT_SCORER=/deepspeech/deepspeech-0.9.1-models.scorer
+      - ENABLE_EXTENSIONS=true
+      - ESCAPEPOD_EXTENDER_TARGET=localhost:8089
+      - ESCAPEPOD_EXTENDER_DISABLE_TLS=true
+    expose:
+      - "8084"
+      - "8085"
+      - "8080"
+    depends_on:
+      - escapepod-mongo
+volumes:
+  data: 
